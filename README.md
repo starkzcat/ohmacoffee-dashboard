@@ -5,3 +5,6 @@ Dashboard for "OhMaCoffee" coffee shop management. Managing stock, staff shift, 
 - Frontend: React, TailwindCSS
 - Backend: Node.js, Express
 - Database: PostgreSQL
+
+### Disclaimer
+This is considered as a "personal project".
