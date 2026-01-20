@@ -5,10 +5,167 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+enum Role {
+  SUPER_ADMIN
+  MANAGER
+  CASHIER
+  BARISTA
+  WAITER
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+model User {
+  id            Int       @id @default(autoincrement())
+  email         String    @unique
+  name          String?
+  passwordHash  String?   @map("password_hash")
+  role          Role 
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+model Employee {
+  id         Int        @id @default(autoincrement())
+  name       String  
+  birthDate  DateTime?  @map("birth_date")
+  isActive   Boolean    @default(true) @map("is_active") // soft deletes
+  createdAt  DateTime   @default(now()) @map("created_at")
+  updatedAt  DateTime   @updatedAt @map("updated_at")
+
+  gender     Gender
+  role       Role
+  shifts     EmployeeShift[]
+
+  @@map("employees")
+}
+
+model Shift {
+  id         Int       @id @default(autoincrement())
+  name       String    // e.g., "Morning", "Afternoon"
+  startTime  String    @map("start_time") // e.g., "06:00"
+  endTime    String    @map("end_time")   // e.g., "14:00"
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  employees  EmployeeShift[]
+
+  @@map("shifts")
+}
+
+// junction table (many-to-many)
+model EmployeeShift {
+  id          Int
+  employeeId  Int
+  shiftId     Int
+  date        DateTime
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  shift       Shift     @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, date])
+  @@index([shiftId, date])
+  @@map("employee_shifts")
+}
+
+model Category {
+  id           Int       @id @default(autoincrement())
+  name         String
+  description  String?
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  products     Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id            Int       @id @default(autoincrement())
+  name          String
+  description   String
+  basePrice     Decimal   @db.Decimal(10, 2) @map("base_price")
+  categoryId    Int       @map("category_id")
+  isActive      Boolean   @default(true) @map("is_active") // soft delete
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  category      Category  @relation(fields: [categoryId], references: [id])
+  orderDetails  OrderDetail[]
+  productInventories ProductInventory[]
+
+  @@index([categoryId, isActive])
+  @@map("products")
+}
+
+model Inventory {
+  id           Int       @id @default(autoincrement())
+  itemName     String    @map("item_name")
+  stock        Decimal   @db.Decimal(10, 2)
+  minStock     Decimal   @db.Decimal(10, 2) @map("min_stock")
+  unit         String
+  costPerUnit  Decimal?  @db.Decimal(10, 2) @map("cost_per_unit")
+  isActive     Boolean   @default(true) @map("is_active") // soft deletes
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  productInventories ProductInventory[]
+
+  @@map("inventories")
+}
+
+model ProductInventory {
+  id           Int        @id @default(autoincrement())
+  productId    Int
+  inventoryId  Int
+  quantityUsed Decimal @db.Decimal(10, 2) @map("quantity_used") // Raw material per product
+
+  product      Product    @relation(fields: [productId], references: [id])
+  inventory    Inventory  @relation(fields: [inventoryId], references: [id])
+
+  @@unique([productId, inventoryId])
+  @@map("product_inventories")
+}
+
+model Order {
+  id            Int       @id @default(autoincrement())
+  orderNumber   String    @unique @map("order_number")
+  orderDate     DateTime  @default(now()) @map("order_date")
+  customerName  String?   @map("customer_name")
+  totalAmount   Decimal   @db.Decimal(10, 2) @map("total_amount")
+
+  OrderDetails  OrderDetail[]
+
+  @@index([orderDate])
+  @@map("orders")
+}
+
+model OrderDetail {
+  id          Int       @id @default(autoincrement())
+  orderId     Int 
+  productId   Int
+  quantity    Int
+  unitPrice   Decimal   @db.Decimal(10, 2) @map("unit_price")
+  subTotal    Decimal   @db.Decimal(10, 2) @map("sub_total")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  order       Order     @relation(fields: [orderId], references: [id])
+  product     Product   @relation(fields: [productId], references: [id])
+
+  @@unique([orderId, productId])
+  @@map("order_details")
 }
